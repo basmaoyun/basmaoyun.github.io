@@ -19,7 +19,7 @@ canvas{display:block;width:100vw;height:100dvh}
 const cv=document.getElementById('c'),ctx=cv.getContext('2d'),scEl=document.getElementById('sc'),bestEl=document.getElementById('best'),comboEl=document.getElementById('combo'),ov=document.getElementById('ov');
 let W,H,S;function rs(){const d=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);S=Math.min(W/400,H/700)}addEventListener('resize',rs);rs();
 let best=+localStorage.kediBest||0;bestEl.textContent=best;
-let st,cat,plats,cam,score,combo,charging,power,cur,parts;
+let pdir=1,st,cat,plats,cam,score,combo,charging,power,cur,parts;
 const G=()=>0.55*S,MAXP=1;
 function newPlat(prev){const w=(70+Math.random()*50)*S*(score>20?.8:1);let x;do{x=40*S+Math.random()*(W-80*S-w)}while(Math.abs(x+w/2-(prev.x+prev.w/2))<70*S);
  const r=Math.random(),type=score>5&&r<.18?'move':r<.33?'fish':r<.4?'milk':'n';return{x,y:prev.y-(95+Math.random()*35)*S,w,h:18*S,type,dir:1,got:false,scored:false}}
@@ -27,7 +27,7 @@ function reset(){score=0;combo=0;charging=false;power=0;parts=[];cam=0;const p0=
  cat={x:W/2,y:p0.y,vx:0,vy:0,r:18*S,ground:true,sq:1};cur=p0;scEl.textContent=0;st='play'}
 let ac;function snd(f,l,t='sine',v=.15){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.setValueAtTime(f,ac.currentTime);o.frequency.exponentialRampToValueAtTime(f*1.5,ac.currentTime+l);g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+l);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+l)}catch(e){}}
 let chOsc;function next(){return plats.find(p=>p.y<cur.y-1)}
-function down(e){e.preventDefault();if(st!=='play'||!cat.ground)return;charging=true;power=0}
+function down(e){e.preventDefault();if(st!=='play'||!cat.ground)return;charging=true;power=0;pdir=1}
 function up(e){e.preventDefault();if(!charging)return;charging=false;const n=next(),dir=n?Math.sign(n.x+n.w/2-cat.x)||1:1,p=Math.max(power,.08);
  cat.vy=-(7+p*9)*S;cat.vx=dir*p*7.2*S;cat.ground=false;cat.sq=1;snd(300+p*400,.15,'triangle');if(navigator.vibrate)navigator.vibrate(15)}
 cv.addEventListener('pointerdown',down);addEventListener('pointerup',up);addEventListener('pointercancel',up);
@@ -41,7 +41,7 @@ function land(p){cat.y=p.y;cat.vy=0;cat.vx=0;cat.ground=true;cat.sq=.6;
 function die(){st='over';snd(200,.5,'sawtooth');if(navigator.vibrate)navigator.vibrate(250);if(score>best){best=score;localStorage.kediBest=best;bestEl.textContent=best}
  ov.querySelector('h1').textContent='😿 Düştün!';ov.querySelector('p').innerHTML='Skor: <b>'+score+'</b><br>En iyi: <b>'+best+'</b>';ov.querySelectorAll('p')[1].textContent='';ov.querySelector('button').textContent='TEKRAR';ov.style.display='flex'}
 function update(){if(st!=='play')return;
- if(charging){power=Math.min(power+.018,MAXP);cat.sq=1-power*.35}
+ if(charging){power+=.018*pdir;if(power>=MAXP){power=MAXP;pdir=-1}else if(power<=0){power=0;pdir=1}cat.sq=1-power*.35}
  plats.forEach(p=>{if(p.type==='move'){const dx=p.dir*1.1*S;p.x+=dx;if(p.x<10||p.x+p.w>W-10)p.dir*=-1;if(cat.ground&&p===cur)cat.x+=dx}});
  if(!cat.ground){const py=cat.y;cat.vy+=G();cat.x+=cat.vx;cat.y+=cat.vy;if(cat.x<cat.r){cat.x=cat.r;cat.vx*=-.5}if(cat.x>W-cat.r){cat.x=W-cat.r;cat.vx*=-.5}
   if(cat.vy>0)for(const p of plats){if(py<=p.y&&cat.y>=p.y&&cat.x>p.x-4*S&&cat.x<p.x+p.w+4*S){land(p);break}}}
