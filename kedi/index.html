@@ -14,22 +14,27 @@ canvas{display:block;width:100vw;height:100dvh}
 <canvas id="c"></canvas>
 <div id="ui"><span>🐟 <span id="sc">0</span></span><span>🏆 <span id="best">0</span></span></div>
 <div id="combo"></div>
-<div id="ov"><h1>🐱 Kedi Zıplama</h1><p>Ekrana <b>basılı tut</b>, güç biriksin. <b>Bırak</b>, kedi bir sonraki platforma zıplasın. Ortaya inersen kombo yaparsın!</p><p>🐟 balık +3 · 🥛 süt +5 · mor platformlar kayar</p><button id="go">OYNA</button></div>
+<div id="ov"><h1>🐱 Kedi Zıplama</h1><p>Ekranın <b>solu ↖</b>, <b>ortası ↑</b>, <b>sağı ↗</b>. Yönü seçip <b>basılı tut</b>, güç biriksin; <b>bırak</b>, kedi zıplasın. Basılıyken parmağını kaydırıp yönü değiştirebilirsin. Ortaya inersen kombo!</p><p>🐟 balık +3 · 🥛 süt +5 · mor platformlar kayar</p><button id="go">OYNA</button></div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d'),scEl=document.getElementById('sc'),bestEl=document.getElementById('best'),comboEl=document.getElementById('combo'),ov=document.getElementById('ov');
 let W,H,S;function rs(){const d=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);S=Math.min(W/400,H/700)}addEventListener('resize',rs);rs();
 let best=+localStorage.kediBest||0;bestEl.textContent=best;
-let pdir=1,st,cat,plats,cam,score,combo,charging,power,cur,parts;
+let pdir=1,jdir=0,st,cat,plats,cam,score,combo,charging,power,cur,parts;
 const G=()=>0.55*S,MAXP=1;
-function newPlat(prev){const w=(70+Math.random()*50)*S*(score>20?.8:1);let x;do{x=40*S+Math.random()*(W-80*S-w)}while(Math.abs(x+w/2-(prev.x+prev.w/2))<70*S);
+function newPlat(prev){const w=(70+Math.random()*50)*S*(score>20?.8:1),pc=prev.x+prev.w/2,m=Math.random();let side=m<.3?0:m<.65?-1:1,c;
+ if(side===0)c=pc+(Math.random()-.5)*20*S;else{const d=(100+Math.random()*60)*S;c=pc+side*d;if(c-w/2<12*S||c+w/2>W-12*S)c=pc-side*d}
+ c=Math.max(w/2+12*S,Math.min(W-w/2-12*S,c));const x=c-w/2;
  const r=Math.random(),type=score>5&&r<.18?'move':r<.33?'fish':r<.4?'milk':'n';return{x,y:prev.y-(95+Math.random()*35)*S,w,h:18*S,type,dir:1,got:false,scored:false}}
 function reset(){score=0;combo=0;charging=false;power=0;parts=[];cam=0;const p0={x:W/2-70*S,y:H*.75,w:140*S,h:18*S,type:'n',scored:true};plats=[p0];for(let i=0;i<6;i++)plats.push(newPlat(plats[plats.length-1]));
  cat={x:W/2,y:p0.y,vx:0,vy:0,r:18*S,ground:true,sq:1};cur=p0;scEl.textContent=0;st='play'}
 let ac;function snd(f,l,t='sine',v=.15){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.setValueAtTime(f,ac.currentTime);o.frequency.exponentialRampToValueAtTime(f*1.5,ac.currentTime+l);g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+l);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+l)}catch(e){}}
 let chOsc;function next(){return plats.find(p=>p.y<cur.y-1)}
-function down(e){e.preventDefault();if(st!=='play'||!cat.ground)return;charging=true;power=0;pdir=1}
-function up(e){e.preventDefault();if(!charging)return;charging=false;const n=next(),dir=n?Math.sign(n.x+n.w/2-cat.x)||1:1,p=Math.max(power,.08);
- cat.vy=-(7+p*9)*S;cat.vx=dir*p*7.2*S;cat.ground=false;cat.sq=1;snd(300+p*400,.15,'triangle');if(navigator.vibrate)navigator.vibrate(15)}
+function zone(e){const x=e.clientX;return x<W/3?-1:x>W*2/3?1:0}
+function down(e){e.preventDefault();if(st!=='play'||!cat.ground)return;jdir=zone(e);charging=true;power=0;pdir=1}
+function mv(e){if(charging)jdir=zone(e)}
+cv.addEventListener('pointermove',mv);
+function up(e){e.preventDefault();if(!charging)return;charging=false;const p=Math.max(power,.08);
+ cat.vy=-(7+p*9)*S;cat.vx=jdir*(1.2+p*6)*S;cat.ground=false;cat.sq=1;snd(300+p*400,.15,'triangle');if(navigator.vibrate)navigator.vibrate(15)}
 cv.addEventListener('pointerdown',down);addEventListener('pointerup',up);addEventListener('pointercancel',up);
 function burst(x,y,c,n=12){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*6*S,vy:-Math.random()*5*S,l:1,c})}
 function showCombo(t){comboEl.textContent=t;comboEl.style.opacity=1;clearTimeout(showCombo.t);showCombo.t=setTimeout(()=>comboEl.style.opacity=0,700)}
@@ -62,6 +67,8 @@ function draw(){const g=ctx.createLinearGradient(0,0,0,H),hue=200-Math.min(score
  [[-1],[1]].forEach(([s])=>{ctx.beginPath();ctx.moveTo(s*r*.75,-r*.45);ctx.lineTo(s*r*.45,-r*1.25);ctx.lineTo(s*r*.05,-r*.8);ctx.fill()});
  ctx.fillStyle='#000';const blink=charging?.4:1;ctx.beginPath();ctx.ellipse(-r*.35,-r*.1,3*S,3*S*blink,0,0,7);ctx.ellipse(r*.35,-r*.1,3*S,3*S*blink,0,0,7);ctx.fill();
  ctx.fillStyle='#ff6b81';ctx.beginPath();ctx.arc(0,r*.15,2.5*S,0,7);ctx.fill();ctx.restore();
+ const zy=H-95*S;['↖','↑','↗'].forEach((a,i)=>{const on=charging&&jdir===i-1;ctx.globalAlpha=on?.9:.28;ctx.fillStyle=on?'#ff9f43':'#fff';rr(W*i/3+8*S,zy,W/3-16*S,34*S,17*S);ctx.fillStyle=on?'#fff':'#1a1a2e';ctx.font=`900 ${22*S}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a,W*(i+.5)/3,zy+17*S)});ctx.globalAlpha=1;ctx.textBaseline='alphabetic';
+ if(charging){const ax=cat.x,ay=cat.y-cam-cat.r*2.6,ang=Math.atan2(-1,jdir*.8),L=(26+power*30)*S;ctx.strokeStyle='#fff';ctx.lineWidth=5*S;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(ax,ay);const ex=ax+Math.cos(ang)*L,ey=ay+Math.sin(ang)*L;ctx.lineTo(ex,ey);ctx.stroke();ctx.beginPath();ctx.moveTo(ex+Math.cos(ang+2.5)*10*S,ey+Math.sin(ang+2.5)*10*S);ctx.lineTo(ex,ey);ctx.lineTo(ex+Math.cos(ang-2.5)*10*S,ey+Math.sin(ang-2.5)*10*S);ctx.stroke()}
  if(charging){ctx.fillStyle='#0003';rr(W/2-80*S,H-50*S,160*S,14*S,7*S);ctx.fillStyle=power>.85?'#ff4757':'#ffd32a';rr(W/2-80*S,H-50*S,160*S*power,14*S,7*S)}
  parts.forEach(q=>{ctx.globalAlpha=q.l;ctx.fillStyle=q.c;ctx.fillRect(q.x,q.y-cam,4*S,4*S)});ctx.globalAlpha=1}
 function loop(){update();draw();requestAnimationFrame(loop)}
