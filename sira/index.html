@@ -48,6 +48,18 @@ button.alt{background:#262626;color:#fff}
 <footer><button class="alt" id="menuB">Mod</button><button id="newB">Yeni Oyun</button></footer>
 <div id="ov"><div class="card" id="cd"></div></div>
 <script>
+
+const SB_URL='https://fynlvcdjvyokshfygnxq.supabase.co',SB_KEY='sb_publishable_JsYzqmtEEGNzpDHlft0UOg_SrYaLggD';
+async function rpc(fn,body){const r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body||{})});const j=await r.json().catch(()=>null);if(!r.ok)throw new Error((j&&j.message)||'Bağlantı hatası');return j}
+const PID=localStorage.siraPid||(localStorage.siraPid=(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c=='x'?r:(r&3|8)).toString(16)})));
+let TOUR=null; // {id,week,order}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function startTour(){const nm=($('nm')&&$('nm').value||'').trim();if(nm.length<2){alert('En az 2 harfli bir takma ad yaz');return}
+ localStorage.siraName=nm;ov('<h2>Hazırlanıyor…</h2><p>Haftanın tahtası yükleniyor.</p>');
+ try{TOUR=await rpc('start_run',{p_player:PID,p_name:nm});N=10;hide();reset(TOUR.order)}catch(e){ov(`<h2>Olmadı 😕</h2><p>${esc(e.message)}</p><button onclick="tourMenu()">Geri</button>`)}}
+function tourMenu(){ov(`<h2>🏆 HAFTALIK TURNUVA</h2><p>Bu hafta herkes <b>aynı tahtayı</b> oynar. En iyi süren sıralamaya girer, istediğin kadar dene!</p><p>Süreyi sunucu tutar, ilk dokunuşta değil <b>Başla</b> deyince başlar.</p><input id="nm" maxlength="16" placeholder="Takma adın" value="${esc(localStorage.siraName||'')}" style="width:100%;padding:12px;border-radius:12px;border:0;font-size:17px;margin-top:10px;text-align:center"><button onclick="startTour()">Başla</button><button class="alt" onclick="board_()">Sıralamayı Gör</button><button class="alt" onclick="menu()">Geri</button>`)}
+async function board_(hl){ov('<h2>Sıralama</h2><p>Yükleniyor…</p>');try{const L=await rpc('leaderboard',{});const me=localStorage.siraName;
+ ov(`<h2>🏆 Bu Haftanın Sıralaması</h2><div style="max-height:52vh;overflow:auto;text-align:left;margin-top:8px">${L.length?L.map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:8px;${r.name===me?'background:#ffd23f33':''}"><span>${i<3?['🥇','🥈','🥉'][i]:(i+1)+'.'} ${esc(r.name)}</span><b>${(r.ms/1000).toFixed(2)} sn</b></div>`).join(''):'<p style="text-align:center">Henüz kimse bitirmedi. İlk sen ol!</p>'}</div><button onclick="tourMenu()">Oyna</button><button class="alt" onclick="menu()">Ana Menü</button>`)}catch(e){ov(`<h2>Bağlantı yok</h2><p>${esc(e.message)}</p><button onclick="menu()">Geri</button>`)}}
 const LAYOUTS={10:[3,4,3],15:[4,4,4,3],6:[3,3]};
 let N=+(localStorage.siraN||10),order=[],target=1,errors=0,t0=0,timer=null,lock=false,started=false;
 const $=id=>document.getElementById(id),board=$('board');
@@ -55,15 +67,15 @@ let AC;function beep(f,d=.08,ty='sine',v=.15){try{AC=AC||new (window.AudioContex
 const vib=p=>navigator.vibrate&&navigator.vibrate(p);
 function bestKey(){return 'siraBest'+N}
 function showBest(){const b=localStorage[bestKey()];$('best').textContent=b?(+b).toFixed(2):'–'}
-function build(){board.innerHTML='';const rows=LAYOUTS[N];
- order=[...Array(N)].map((_,i)=>i+1).sort(()=>Math.random()-.5);
+function build(fixed){board.innerHTML='';const rows=LAYOUTS[N];
+ order=fixed?fixed.slice():[...Array(N)].map((_,i)=>i+1).sort(()=>Math.random()-.5);
  board.style.aspectRatio=N===6?'1/0.65':N===15?'1/1.05':'1/0.92';
  let k=0;rows.forEach((c,r)=>{const max=Math.max(...rows);for(let i=0;i<c;i++){const d=document.createElement('div');d.className='disc';
   const x=50+(i-(c-1)/2)*(N===15?22:23);const y=(r+.5)/rows.length*100;
   d.style.left=x+'%';d.style.top=y+'%';if(N===15)d.style.width='19%';
   const n=order[k++];d.dataset.n=n;d.innerHTML='<div class="in"><div class="f"></div><div class="f b">'+n+'</div></div>';
   d.addEventListener('pointerdown',()=>tap(d));board.appendChild(d)}});}
-function reset(){clearInterval(timer);target=1;errors=0;started=false;lock=false;$('time').textContent='0.00';$('tg').textContent=1;$('err').textContent=0;showBest();build()}
+function reset(fixed){if(!fixed)TOUR=null;clearInterval(timer);target=1;errors=0;started=false;lock=false;$('time').textContent='0.00';$('tg').textContent=1;$('err').textContent=0;showBest();build(fixed);if(fixed){started=true;t0=performance.now();timer=setInterval(()=>$('time').textContent=((performance.now()-t0)/1000).toFixed(2),30)}}
 function tap(d){if(lock||d.classList.contains('up'))return;
  if(!started){started=true;t0=performance.now();timer=setInterval(()=>$('time').textContent=((performance.now()-t0)/1000).toFixed(2),30)}
  const n=+d.dataset.n;d.classList.add('up');
@@ -72,6 +84,8 @@ function tap(d){if(lock||d.classList.contains('up'))return;
   setTimeout(()=>{board.classList.remove('shake');document.querySelectorAll('.disc.up').forEach(x=>x.classList.remove('up'));
    setTimeout(()=>{d.classList.remove('bad');target=1;$('tg').textContent=1;lock=false},300)},850)}}
 function win(){clearInterval(timer);lock=true;const t=(performance.now()-t0)/1000;$('time').textContent=t.toFixed(2);
+ if(TOUR){const T=TOUR;[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));document.querySelectorAll('.disc').forEach((x,i)=>setTimeout(()=>x.classList.add('ok'),i*40));
+  rpc('finish_run',{p_id:T.id,p_player:PID,p_errors:errors}).then(r=>ov(`<h2>TURNUVA 🏆</h2><div class="big">${(r.ms/1000).toFixed(2)} sn</div><p>Bu haftaki sıran: <b>${r.rank}.</b></p><p>${errors} hata</p><button onclick="tourMenu()">Tekrar Dene</button><button class="alt" onclick="board_()">Sıralama</button><button class="alt" onclick="share(${(r.ms/1000).toFixed(2)})">Paylaş</button>`)).catch(e=>ov(`<h2>Kaydedilemedi</h2><p>${esc(e.message)}</p><button onclick="tourMenu()">Tekrar</button>`));return}
  document.querySelectorAll('.disc').forEach((x,i)=>setTimeout(()=>x.classList.add('ok'),i*40));
  [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));vib([30,30,30,30,80]);
  const old=+localStorage[bestKey()]||0,rec=!old||t<old;if(rec)localStorage[bestKey()]=t;showBest();
@@ -79,7 +93,7 @@ function win(){clearInterval(timer);lock=true;const t=(performance.now()-t0)/100
 function share(t){const txt=`SIRAYLA ÇEVİR oyununu ${N} pulla ${t} saniyede bitirdim! Sen kaç saniyede bitirirsin?`,u=location.href;
  if(navigator.share)navigator.share({text:txt,url:u}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(txt+' '+u);alert('Kopyalandı!')}}
 function ov(h){$('cd').innerHTML=h;$('ov').classList.add('on')}function hide(){$('ov').classList.remove('on')}
-function menu(first){ov(`<h2>SIRAYLA ÇEVİR</h2><p>Kapalı pullardan birine dokun. Sıradaki sayıysa açık kalır, değilse <b>hepsi kapanır</b> ve 1'den başlarsın.</p><p>Yanlış açtığın sayının yerini aklında tut!</p><div class="modes">${[6,10,15].map(m=>`<button class="${m===N?'sel':'alt'}" onclick="N=${m};localStorage.siraN=${m};menu(${first})">${m===6?'Kolay':m===10?'Klasik':'Zor'}<br><small>${m} pul</small></button>`).join('')}</div><button onclick="hide();reset()">Başla</button>`)}
-$('newB').onclick=reset;$('menuB').onclick=()=>menu(false);
+function menu(first){ov(`<h2>SIRAYLA ÇEVİR</h2><p>Kapalı pullardan birine dokun. Sıradaki sayıysa açık kalır, değilse <b>hepsi kapanır</b> ve 1'den başlarsın.</p><p>Yanlış açtığın sayının yerini aklında tut!</p><div class="modes">${[6,10,15].map(m=>`<button class="${m===N?'sel':'alt'}" onclick="N=${m};localStorage.siraN=${m};menu(${first})">${m===6?'Kolay':m===10?'Klasik':'Zor'}<br><small>${m} pul</small></button>`).join('')}</div><button onclick="hide();reset()">Antrenman</button><button style="background:#ff7a00;color:#fff" onclick="tourMenu()">🏆 Haftalık Turnuva</button>`)}
+$('newB').onclick=()=>TOUR?tourMenu():reset();$('menuB').onclick=()=>menu(false);
 reset();menu(true);
 </script></body></html>
