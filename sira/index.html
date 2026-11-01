@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#111"><title>SIRAYLA ÇEVİR</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{height:100%;background:#0d0d0d;color:#fff;font-family:system-ui,-apple-system,sans-serif;overflow:hidden;touch-action:manipulation}
+body{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+header{width:100%;max-width:480px;padding:16px 4px 0;text-align:center}
+h1{font-size:22px;letter-spacing:3px;color:#ffd23f}
+.sub{font-size:13px;opacity:.7;margin-top:4px}
+.hud{display:flex;justify-content:space-between;margin-top:14px;gap:8px}
+.box{flex:1;background:#1c1c1c;border-radius:12px;padding:8px 4px}
+.box b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.box span{font-size:11px;opacity:.6;letter-spacing:1px}
+#target b{color:#ffd23f}
+#board{position:relative;width:min(94vw,440px);aspect-ratio:1/0.92;background:#000 radial-gradient(#ffffff14 1px,transparent 1px) 0 0/9px 9px;border-radius:18px;box-shadow:inset 0 0 30px #000,0 8px 30px #0008}
+.disc{position:absolute;width:21%;aspect-ratio:1;perspective:600px;transform:translate(-50%,-50%);cursor:pointer}
+.in{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .28s}
+.disc.up .in{transform:rotateY(180deg)}
+.f{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;
+background:radial-gradient(circle at 35% 30%,#fff3a0,#ffd23f 45%,#e0a800);box-shadow:0 5px 0 #a87b00,0 8px 12px #0009}
+.b{transform:rotateY(180deg);color:#111;font-weight:900;font-size:clamp(26px,9vw,44px)}
+.disc.bad .b{background:radial-gradient(circle at 35% 30%,#ffb3b3,#ff4d4d 50%,#b30000);color:#fff}
+.disc.ok .b{background:radial-gradient(circle at 35% 30%,#d4ffd9,#5fe07a 50%,#1f9a3a)}
+.disc:active .in{scale:.94}
+#board.shake{animation:sh .35s}
+@keyframes sh{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+footer{width:100%;max-width:480px;padding:0 4px 18px;display:flex;gap:8px}
+button{flex:1;border:0;border-radius:14px;padding:14px;font-size:16px;font-weight:700;background:#ffd23f;color:#111}
+button.alt{background:#262626;color:#fff}
+#ov{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9}
+#ov.on{display:flex}
+.card{background:#1a1a1a;border-radius:20px;padding:26px 22px;width:min(88vw,360px);text-align:center}
+.card h2{color:#ffd23f;font-size:26px;margin-bottom:8px}
+.card p{opacity:.85;margin:6px 0;line-height:1.4}
+.card .big{font-size:40px;font-weight:900;font-variant-numeric:tabular-nums;margin:10px 0}
+.card button{margin-top:14px;width:100%}
+.modes{display:flex;gap:6px;margin-top:10px}
+.modes button{padding:10px 4px;font-size:14px}
+.modes button.sel{outline:3px solid #fff}
+</style></head><body>
+<header><h1>SIRAYLA ÇEVİR</h1><div class="sub">1'den başla, sırayla bul. Yanlışta her şey kapanır!</div>
+<div class="hud"><div class="box"><b id="time">0.00</b><span>SÜRE</span></div>
+<div class="box" id="target"><b id="tg">1</b><span>SIRADAKİ</span></div>
+<div class="box"><b id="err">0</b><span>HATA</span></div>
+<div class="box"><b id="best">–</b><span>REKOR</span></div></div></header>
+<div id="board"></div>
+<footer><button class="alt" id="menuB">Mod</button><button id="newB">Yeni Oyun</button></footer>
+<div id="ov"><div class="card" id="cd"></div></div>
+<script>
+const LAYOUTS={10:[3,4,3],15:[4,4,4,3],6:[3,3]};
+let N=+(localStorage.siraN||10),order=[],target=1,errors=0,t0=0,timer=null,lock=false,started=false;
+const $=id=>document.getElementById(id),board=$('board');
+let AC;function beep(f,d=.08,ty='sine',v=.15){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+const vib=p=>navigator.vibrate&&navigator.vibrate(p);
+function bestKey(){return 'siraBest'+N}
+function showBest(){const b=localStorage[bestKey()];$('best').textContent=b?(+b).toFixed(2):'–'}
+function build(){board.innerHTML='';const rows=LAYOUTS[N];
+ order=[...Array(N)].map((_,i)=>i+1).sort(()=>Math.random()-.5);
+ board.style.aspectRatio=N===6?'1/0.65':N===15?'1/1.05':'1/0.92';
+ let k=0;rows.forEach((c,r)=>{const max=Math.max(...rows);for(let i=0;i<c;i++){const d=document.createElement('div');d.className='disc';
+  const x=50+(i-(c-1)/2)*(N===15?22:23);const y=(r+.5)/rows.length*100;
+  d.style.left=x+'%';d.style.top=y+'%';if(N===15)d.style.width='19%';
+  const n=order[k++];d.dataset.n=n;d.innerHTML='<div class="in"><div class="f"></div><div class="f b">'+n+'</div></div>';
+  d.addEventListener('pointerdown',()=>tap(d));board.appendChild(d)}});}
+function reset(){clearInterval(timer);target=1;errors=0;started=false;lock=false;$('time').textContent='0.00';$('tg').textContent=1;$('err').textContent=0;showBest();build()}
+function tap(d){if(lock||d.classList.contains('up'))return;
+ if(!started){started=true;t0=performance.now();timer=setInterval(()=>$('time').textContent=((performance.now()-t0)/1000).toFixed(2),30)}
+ const n=+d.dataset.n;d.classList.add('up');
+ if(n===target){beep(400+target*60);vib(15);target++;$('tg').textContent=target>N?'✓':target;if(target>N)win()}
+ else{lock=true;errors++;$('err').textContent=errors;d.classList.add('bad');beep(140,.3,'square',.12);vib([60,40,60]);board.classList.add('shake');
+  setTimeout(()=>{board.classList.remove('shake');document.querySelectorAll('.disc.up').forEach(x=>x.classList.remove('up'));
+   setTimeout(()=>{d.classList.remove('bad');target=1;$('tg').textContent=1;lock=false},300)},850)}}
+function win(){clearInterval(timer);lock=true;const t=(performance.now()-t0)/1000;$('time').textContent=t.toFixed(2);
+ document.querySelectorAll('.disc').forEach((x,i)=>setTimeout(()=>x.classList.add('ok'),i*40));
+ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));vib([30,30,30,30,80]);
+ const old=+localStorage[bestKey()]||0,rec=!old||t<old;if(rec)localStorage[bestKey()]=t;showBest();
+ setTimeout(()=>ov(`<h2>${rec?'YENİ REKOR! 🏆':'BİTTİ! 🎉'}</h2><div class="big">${t.toFixed(2)} sn</div><p>${errors} hata ile tamamladın.</p>${rec||!old?'':'<p>Rekorun: '+old.toFixed(2)+' sn</p>'}<button onclick="hide();reset()">Tekrar Oyna</button><button class="alt" onclick="share(${t.toFixed(2)})">Skoru Paylaş</button>`),700)}
+function share(t){const txt=`SIRAYLA ÇEVİR oyununu ${N} pulla ${t} saniyede bitirdim! Sen kaç saniyede bitirirsin?`,u=location.href;
+ if(navigator.share)navigator.share({text:txt,url:u}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(txt+' '+u);alert('Kopyalandı!')}}
+function ov(h){$('cd').innerHTML=h;$('ov').classList.add('on')}function hide(){$('ov').classList.remove('on')}
+function menu(first){ov(`<h2>SIRAYLA ÇEVİR</h2><p>Kapalı pullardan birine dokun. Sıradaki sayıysa açık kalır, değilse <b>hepsi kapanır</b> ve 1'den başlarsın.</p><p>Yanlış açtığın sayının yerini aklında tut!</p><div class="modes">${[6,10,15].map(m=>`<button class="${m===N?'sel':'alt'}" onclick="N=${m};localStorage.siraN=${m};menu(${first})">${m===6?'Kolay':m===10?'Klasik':'Zor'}<br><small>${m} pul</small></button>`).join('')}</div><button onclick="hide();reset()">Başla</button>`)}
+$('newB').onclick=reset;$('menuB').onclick=()=>menu(false);
+reset();menu(true);
+</script></body></html>
