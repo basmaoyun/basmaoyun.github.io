@@ -98,7 +98,7 @@ function share(t,txt){txt=txt||`SIRAYLA ÇEVİR oyununu ${N} pulla ${t} saniyede
 function ov(h){$('cd').innerHTML=h;$('ov').classList.add('on')}function hide(){$('ov').classList.remove('on')}
 function nameInput(){return `<input class="t" id="nm" maxlength="16" placeholder="Takma adın" value="${esc(localStorage.siraName||'')}">`}
 function getName(){const nm=($('nm')&&$('nm').value||'').trim();if(nm.length<2){alert('En az 2 harfli bir takma ad yaz');return null}localStorage.siraName=nm;return nm}
-function menu(){stopDuel();ov(`<h2>SIRAYLA ÇEVİR</h2><p>Kapalı pullardan birine dokun. Sıradaki sayıysa açık kalır, değilse <b>hepsi kapanır</b> ve 1'den başlarsın.</p><div class="modes">${[6,10,15].map(m=>`<button class="${m===N?'sel':'alt'}" onclick="N=${m};localStorage.siraN=${m};menu()">${m===6?'Kolay':m===10?'Klasik':'Zor'}<br><small>${m} pul</small></button>`).join('')}</div><button onclick="hide();reset()">Antrenman</button><button style="background:#ff7a00;color:#fff" onclick="tourMenu()">🏆 Haftalık Turnuva</button><button style="background:#3b82f6;color:#fff" onclick="duelMenu()">⚔️ 1'e 1 Düello</button>`)}
+function menu(){stopDuel();bStop&&bStop();ov(`<h2>SIRAYLA ÇEVİR</h2><p>Kapalı pullardan birine dokun. Sıradaki sayıysa açık kalır, değilse <b>hepsi kapanır</b> ve 1'den başlarsın.</p><div class="modes">${[6,10,15].map(m=>`<button class="${m===N?'sel':'alt'}" onclick="N=${m};localStorage.siraN=${m};menu()">${m===6?'Kolay':m===10?'Klasik':'Zor'}<br><small>${m} pul</small></button>`).join('')}</div><button onclick="hide();reset()">Antrenman</button><button style="background:#ff7a00;color:#fff" onclick="tourMenu()">🏆 Haftalık Turnuva</button><button style="background:#3b82f6;color:#fff" onclick="duelMenu()">⚔️ 1'e 1 Düello</button><button style="background:#16a34a;color:#fff" onclick="bMenu()">🏟️ Eleme Turnuvası</button>`)}
 // TURNUVA
 function tourMenu(){stopDuel();ov(`<h2>🏆 HAFTALIK TURNUVA</h2><p>Bu hafta herkes <b>aynı tahtayı</b> oynar. En iyi süren sıralamaya girer, istediğin kadar dene!</p><p>Süreyi sunucu tutar: <b>Başla</b>'ya basınca başlar.</p>${nameInput()}<button onclick="startTour()">Başla</button><button class="alt" onclick="board_()">Sıralamayı Gör</button><button class="alt" onclick="menu()">Geri</button>`)}
 async function startTour(){const nm=getName();if(!nm)return;ov('<h2>Hazırlanıyor…</h2>');
@@ -106,16 +106,16 @@ async function startTour(){const nm=getName();if(!nm)return;ov('<h2>Hazırlanıy
 async function board_(){ov('<h2>Sıralama</h2><p>Yükleniyor…</p>');try{const L=await rpc('leaderboard',{});const me=localStorage.siraName;
  ov(`<h2>🏆 Bu Haftanın Sıralaması</h2><div style="max-height:52vh;overflow:auto;text-align:left;margin-top:8px">${L.length?L.map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:8px;${r.name===me?'background:#ffd23f33':''}"><span>${i<3?['🥇','🥈','🥉'][i]:(i+1)+'.'} ${esc(r.name)}</span><b>${(r.ms/1000).toFixed(2)} sn</b></div>`).join(''):'<p style="text-align:center">Henüz kimse bitirmedi. İlk sen ol!</p>'}</div><button onclick="tourMenu()">Oyna</button><button class="alt" onclick="menu()">Ana Menü</button>`)}catch(e){ov(`<h2>Bağlantı yok</h2><p>${esc(e.message)}</p><button onclick="menu()">Geri</button>`)}}
 // DUELLO
-function duelMenu(code){stopDuel();ov(`<h2>⚔️ 1'E 1 DÜELLO</h2><p>İkiniz <b>aynı tahtayı</b> aynı anda oynarsınız. Önce 10'a ulaşan kazanır!</p>${nameInput()}<button onclick="duelGo('find')">🎲 Rastgele Rakip Bul</button><button style="background:#3b82f6;color:#fff" onclick="duelGo('create')">🔗 Arkadaşa Oda Aç</button><input class="t" id="code" maxlength="5" placeholder="Oda kodu" value="${esc(code||'')}" style="text-transform:uppercase"><button class="alt" onclick="duelGo('join')">Koda Katıl</button><button class="alt" onclick="menu()">Geri</button>`)}
+function duelMenu(code){stopDuel();bStop();ov(`<h2>⚔️ 1'E 1 DÜELLO</h2><p>İkiniz <b>aynı tahtayı</b> aynı anda oynarsınız. Önce 10'a ulaşan kazanır!</p>${nameInput()}<button onclick="duelGo('find')">🎲 Rastgele Rakip Bul</button><button style="background:#3b82f6;color:#fff" onclick="duelGo('create')">🔗 Arkadaşa Oda Aç</button><input class="t" id="code" maxlength="5" placeholder="Oda kodu" value="${esc(code||'')}" style="text-transform:uppercase"><button class="alt" onclick="duelGo('join')">Koda Katıl</button><button class="alt" onclick="duelBoard()">🏅 Düello Sıralaması</button><button class="alt" onclick="menu()">Geri</button>`)}
 async function duelGo(kind){const nm=getName();if(!nm)return;let code=kind==='join'?($('code').value||'').trim().toUpperCase():null;if(kind==='join'&&code.length<5){alert('5 harfli oda kodunu yaz');return}
  ov('<h2>Bağlanıyor…</h2>');
  try{DUEL=kind==='find'?await rpc('duel_find',{p_player:PID,p_name:nm}):kind==='create'?await rpc('duel_create',{p_player:PID,p_name:nm}):await rpc('duel_join',{p_code:code,p_player:PID,p_name:nm});
   DUEL.kind=kind;DUEL.phase='wait';reset('duel');lock=true;waitScreen();poll=setInterval(duelTick,800);duelTick()}catch(e){ov(`<h2>Olmadı 😕</h2><p>${esc(e.message)}</p><button onclick="duelMenu()">Geri</button>`)}}
-function waitScreen(){const link=location.origin+location.pathname+'?oda='+DUEL.id;
+function waitScreen(){if(DUEL.kind==='bracket'){ov(`<h2>Maç Hazırlanıyor</h2><p>Rakibin: <b>${esc(DUEL.opp)}</b></p><p>İkiniz de girince 3'ten geri sayım başlar. 90 saniye içinde gelmeyen elenir.</p><div class="big">⏳</div><button class="alt" onclick="bOpen('${DUEL.bid}')">Turnuvaya Dön</button>`);return}const link=location.origin+location.pathname+'?oda='+DUEL.id;
  ov(DUEL.kind==='create'?`<h2>Oda Açıldı</h2><p>Arkadaşına bu kodu ya da linki gönder:</p><div class="big" style="letter-spacing:6px">${DUEL.id}</div><button onclick="share(0,'SIRAYLA ÇEVİR düellosuna gel! Oda: ${DUEL.id} ${link}')">Linki Paylaş</button><p style="opacity:.6">Rakip bekleniyor…</p><button class="alt" onclick="leaveDuel()">Vazgeç</button>`
  :`<h2>Rakip Aranıyor…</h2><p>Biri katılınca oyun otomatik başlar.</p><div class="big">⏳</div><button class="alt" onclick="leaveDuel()">Vazgeç</button>`)}
 let cdT=null;
-async function duelTick(){if(!DUEL)return;let s;try{s=await rpc('duel_state',{p_id:DUEL.id,p_player:PID})}catch(e){return}
+async function duelTick(){if(!DUEL)return;let s;try{if(DUEL.kind==='bracket'&&DUEL.phase==='wait')await rpc('duel_ready',{p_id:DUEL.id,p_player:PID});s=await rpc('duel_state',{p_id:DUEL.id,p_player:PID})}catch(e){return}
  if(!DUEL)return;const me=s.slot,op=me===1?2:1,on=s['p'+op+'name'];
  if(on){$('oppn').textContent='⚔️ '+on;const ot=Math.min(s['t'+op]-1,10);$('oppt').textContent=ot+'/10';$('oppb').style.width=ot*10+'%'}
  if(DUEL.phase==='wait'&&s.wait_ms!==null){DUEL.phase='count';hide();let left=Math.max(0,s.wait_ms);const c=$('cnt');c.classList.add('on');
@@ -123,11 +123,41 @@ async function duelTick(){if(!DUEL)return;let s;try{s=await rpc('duel_state',{p_
    const w=Math.min(left,(left%1000)||1000);left-=w;cdT=setTimeout(step,w)};step()}
  if(s.winner&&DUEL.phase!=='end'){DUEL.phase='end';clearInterval(timer);lock=true;const win=s.winner===me,mms=s['ms'+me],oms=s['ms'+op];
   if(win)celebrate();else{beep(200,.4,'sawtooth',.1);vib(200)}
-  setTimeout(()=>ov(`<h2>${win?'KAZANDIN! 🏆':'KAYBETTİN 😔'}</h2><p>${win&&!mms?esc(on)+' oyundan çıktı.':win?'<span class="big">'+(mms/1000).toFixed(2)+' sn</span>':esc(on)+' '+(oms?(oms/1000).toFixed(2)+' sn ile':'')+' önce bitirdi.'}</p><p>Hatalar: sen ${s['e'+me]}, rakip ${s['e'+op]}</p><button onclick="duelMenu()">Yeni Düello</button><button class="alt" onclick="menu()">Ana Menü</button>`),win?700:300);stopPoll()}
+  setTimeout(()=>ov(`<h2>${win?'KAZANDIN! 🏆':'KAYBETTİN 😔'}</h2><p>${win&&!mms?esc(on)+' oyundan çıktı.':win?'<span class="big">'+(mms/1000).toFixed(2)+' sn</span>':esc(on)+' '+(oms?(oms/1000).toFixed(2)+' sn ile':'')+' önce bitirdi.'}</p><p>Hatalar: sen ${s['e'+me]}, rakip ${s['e'+op]}</p>${DUEL.kind==='bracket'?`<button onclick="bOpen('${DUEL.bid}')">Turnuvaya Dön</button>`:'<button onclick="duelMenu()">Yeni Düello</button>'}<button class="alt" onclick="menu()">Ana Menü</button>`),win?700:300);stopPoll()}
  else if(s.gone&&DUEL.phase!=='end'&&DUEL.phase!=='wait'){rpc('duel_claim',{p_id:DUEL.id,p_player:PID}).catch(()=>{});}}
+
+async function duelBoard(){ov('<h2>Düello Sıralaması</h2><p>Yükleniyor…</p>');try{const L=await rpc('duel_leaderboard',{});const me=localStorage.siraName;
+ ov(`<h2>🏅 Bu Haftanın Düellocuları</h2><div style="max-height:52vh;overflow:auto;text-align:left;margin-top:8px">${L.length?L.map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:8px;${r.name===me?'background:#3b82f633':''}"><span>${i<3?['🥇','🥈','🥉'][i]:(i+1)+'.'} ${esc(r.name)}</span><b>${r.wins} G · ${r.losses} M</b></div>`).join(''):'<p style="text-align:center">Bu hafta henüz düello yok.</p>'}</div><button onclick="duelMenu()">Düelloya Dön</button>`)}catch(e){ov(`<h2>Bağlantı yok</h2><p>${esc(e.message)}</p><button onclick="duelMenu()">Geri</button>`)}}
+// ELEME TURNUVASI
+let BP=null,BID=null;
+function bStop(){clearInterval(BP);BP=null}
+function bMenu(code){stopDuel();bStop();ov(`<h2>🏟️ ELEME TURNUVASI</h2><p>16 kişiye kadar. Herkes linkle katılır, kuran başlatır. Her tur 1'e 1 düello, kazanan üst tura çıkar, son kalan şampiyon!</p>${nameInput()}<input class="t" id="code" maxlength="5" placeholder="Turnuva kodu" value="${esc(code||'')}" style="text-transform:uppercase"><button style="background:#16a34a;color:#fff" onclick="bGo('join')">Turnuvaya Katıl</button><input class="t" id="ttl" maxlength="30" placeholder="Turnuva adı (örn: 8-A Sınıfı)"><button onclick="bGo('create')">Yeni Turnuva Kur</button><button class="alt" onclick="menu()">Geri</button>`)}
+async function bGo(kind){const nm=getName();if(!nm)return;ov('<h2>Bağlanıyor…</h2>');
+ try{let r;if(kind==='create')r=await rpc('bracket_create',{p_player:PID,p_name:nm,p_title:($('ttl')?$('ttl').value:'')});
+  else{const c=(($('code')&&$('code').value)||'').trim().toUpperCase();if(c.length<5)throw new Error('5 harfli turnuva kodunu yaz');r=await rpc('bracket_join',{p_code:c,p_player:PID,p_name:nm})}
+  localStorage.siraBracket=r.id;bOpen(r.id)}catch(e){ov(`<h2>Olmadı 😕</h2><p>${esc(e.message)}</p><button onclick="bMenu()">Geri</button>`)}}
+function bOpen(id){stopDuel();bStop();BID=id;reset('duel');$('opp').classList.remove('on');lock=true;bTick();BP=setInterval(bTick,1500)}
+async function bTick(){if(!BID)return;let s;try{s=await rpc('bracket_state',{p_code:BID,p_player:PID})}catch(e){bStop();ov(`<h2>Olmadı</h2><p>${esc(e.message)}</p><button onclick="bMenu()">Geri</button>`);return}
+ if(!BP&&!document.getElementById('cd'))return;
+ const link=location.origin+location.pathname+'?turnuva='+s.id;
+ if(s.status==='lobby'){ov(`<h2>🏟️ ${esc(s.title)}</h2><p>Kod</p><div class="big" style="letter-spacing:6px">${s.id}</div><button onclick="share(0,'${esc(s.title).replace(/'/g,'')} turnuvasına katıl! SIRAYLA ÇEVİR. Kod: ${s.id} ${link}')">Davet Linkini Paylaş</button><p><b>${s.players.length}/16</b> oyuncu:</p><div style="max-height:28vh;overflow:auto">${s.players.map(n=>`<span style="display:inline-block;background:#262626;border-radius:8px;padding:4px 8px;margin:3px">${esc(n)}</span>`).join('')}</div>${s.host?(s.players.length>=2?`<button style="background:#16a34a;color:#fff" onclick="bStart('${s.id}')">Turnuvayı Başlat</button>`:'<p style="opacity:.6">Başlatmak için en az 2 oyuncu lazım.</p>'):'<p style="opacity:.6">Kuranın başlatması bekleniyor…</p>'}<button class="alt" onclick="bStop();menu()">Ana Menü</button>`);return}
+ const tree=bTree(s);
+ if(s.status==='done'){bStop();ov(`<h2>🏆 ŞAMPİYON</h2><div class="big">${esc(s.winner)}</div>${tree}<button onclick="share(0,'${esc(s.title).replace(/'/g,'')} turnuvasının şampiyonu: ${esc(s.winner).replace(/'/g,'')}! ${location.origin+location.pathname}')">Paylaş</button><button class="alt" onclick="menu()">Ana Menü</button>`);if(s.winner===localStorage.siraName)celebrate();return}
+ if(s.my_duel){bStop();const opp=s.slots.length;DUEL={id:s.my_duel,kind:'bracket',phase:'wait',bid:s.id,opp:''};
+  try{const st=await rpc('duel_state',{p_id:s.my_duel,p_player:PID});DUEL.opp=st.slot===1?st.p2name:st.p1name}catch(e){}
+  reset('duel');lock=true;waitScreen();poll=setInterval(duelTick,800);duelTick();return}
+ ov(`<h2>🏟️ ${esc(s.title)}</h2><p>${s.alive?'Rakibin belirlenmesi bekleniyor… Diğer maçlar sürüyor.':'Elendin 😔 Turnuvayı izleyebilirsin.'}</p>${tree}<button class="alt" onclick="bStop();menu()">Ana Menü</button>`)}
+function bTree(s){const R=s.rounds||1;let h='<div style="display:flex;gap:6px;overflow-x:auto;text-align:left;font-size:12px;margin:8px 0;max-height:46vh">';
+ for(let r=1;r<=R;r++){const n=s.size/Math.pow(2,r-1);const title=r===R?'Final':r===R-1?'Yarı Final':r===R-2?'Çeyrek':r+'. Tur';
+  h+=`<div style="min-width:86px;flex:1"><div style="opacity:.6;margin-bottom:4px">${title}</div>`;
+  for(let p=0;p<n;p++){const sl=s.slots.find(x=>x.r===r&&x.p===p);const bye=r===1&&!sl&&s.slots.find(x=>x.r===1&&x.p===(p^1));
+   h+=`<div style="background:${sl&&sl.me?'#ffd23f44':'#262626'};border-radius:6px;padding:4px 6px;margin-bottom:${p%2?8:2}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sl?esc(sl.n):bye?'<i style="opacity:.5">bay</i>':'<span style="opacity:.4">—</span>'}</div>`}
+  h+='</div>'}
+ return h+'</div>'}
+async function bStart(id){try{await rpc('bracket_start',{p_code:id,p_player:PID});bTick()}catch(e){alert(e.message)}}
 function stopPoll(){clearInterval(poll);poll=null}
-function stopDuel(){stopPoll();clearTimeout(cdT);$('cnt').classList.remove('on');if(DUEL&&DUEL.phase!=='end'){const d=DUEL;rpc('duel_forfeit',{p_id:d.id,p_player:PID}).catch(()=>{})}DUEL=null;$('opp').classList.remove('on')}
+function stopDuel(){stopPoll();clearTimeout(cdT);$('cnt').classList.remove('on');if(DUEL&&DUEL.phase!=='end'&&DUEL.kind!=='bracket'){const d=DUEL;rpc('duel_forfeit',{p_id:d.id,p_player:PID}).catch(()=>{})}DUEL=null;$('opp').classList.remove('on')}
 function leaveDuel(){stopDuel();duelMenu()}
 $('newB').onclick=()=>MODE==='tour'?tourMenu():MODE==='duel'?duelMenu():reset();$('menuB').onclick=()=>menu();
-reset();const qp=new URLSearchParams(location.search).get('oda');if(qp)duelMenu(qp.toUpperCase());else menu();
+reset();const Q=new URLSearchParams(location.search),qp=Q.get('oda'),qt=Q.get('turnuva');if(qt)bMenu(qt.toUpperCase());else if(qp)duelMenu(qp.toUpperCase());else menu();
 </script></body></html>
