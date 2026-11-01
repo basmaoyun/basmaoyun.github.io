@@ -34,7 +34,10 @@ function down(e){e.preventDefault();if(st!=='play'||!cat.ground)return;jdir=zone
 function mv(e){if(charging)jdir=zone(e)}
 cv.addEventListener('pointermove',mv);
 function up(e){e.preventDefault();if(!charging)return;charging=false;const p=Math.max(power,.08);
- cat.vy=-(7+p*9)*S;cat.vx=jdir*(1.2+p*6)*S;cat.ground=false;cat.sq=1;snd(300+p*400,.15,'triangle');if(navigator.vibrate)navigator.vibrate(15)}
+ cat.vy=-(7+p*9)*S;let vx=jdir*(1.2+p*6)*S;const n=next();
+ if(n){const v=-cat.vy,g=G(),dy=cat.y-n.y,disc=v*v-2*g*dy;if(disc>=0){const T=(v+Math.sqrt(disc))/g,want=(n.x+n.w/2-cat.x)/T;
+  if(jdir===0||Math.sign(want)===jdir){const lim=(jdir===0?1.6:2.2)*S;vx+=Math.max(-lim,Math.min(lim,want-vx))}}}
+ cat.vx=vx;cat.ground=false;cat.sq=1;snd(300+p*400,.15,'triangle');if(navigator.vibrate)navigator.vibrate(15)}
 cv.addEventListener('pointerdown',down);addEventListener('pointerup',up);addEventListener('pointercancel',up);
 function burst(x,y,c,n=12){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*6*S,vy:-Math.random()*5*S,l:1,c})}
 function showCombo(t){comboEl.textContent=t;comboEl.style.opacity=1;clearTimeout(showCombo.t);showCombo.t=setTimeout(()=>comboEl.style.opacity=0,700)}
