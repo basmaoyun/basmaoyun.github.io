@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2d1b12"><title>Üçgen Kapmaca</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#2d1b12;font-family:system-ui,Arial,sans-serif;color:#fff;touch-action:none}
+#top{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:0;right:0;display:flex;justify-content:center;gap:8px;padding:0 8px;flex-wrap:wrap}
+.pl{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:#0004;font-weight:800;font-size:17px;border:3px solid transparent;transition:.2s}
+.pl.on{border-color:#fff;transform:scale(1.08)}
+.pl i{width:16px;height:14px;clip-path:polygon(50% 0,100% 100%,0 100%);display:inline-block}
+#msg{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 14px);left:0;right:0;text-align:center;font-weight:700;font-size:16px;opacity:.9;padding:0 12px}
+canvas{display:block;width:100vw;height:100dvh}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#2d1b12f2;text-align:center;padding:24px;overflow:auto}
+#ov h1{margin:0;font-size:36px}#ov p{margin:0;opacity:.85;max-width:320px;line-height:1.45;font-size:15px}
+.b{border:0;color:#fff;font-size:18px;font-weight:900;padding:12px 18px;border-radius:30px;min-width:250px;box-shadow:0 4px 0 #0006}
+#res{font-size:18px;line-height:1.6}
+#undo{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 44px);background:#0005;border:0;color:#fff;border-radius:20px;padding:8px 14px;font-weight:700}
+#home{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom) + 44px);background:#0005;border:0;color:#fff;border-radius:20px;padding:8px 14px;font-weight:700}
+</style></head><body>
+<canvas id="c"></canvas><div id="top"></div><div id="msg"></div>
+<button id="home">☰ Menü</button>
+<div id="ov">
+ <h1>🔺 Üçgen Kapmaca</h1>
+ <p>Bir çiviye dokun, parmağını <b>3 aralık</b> öteye kaydır: lastik gerilir. Küçük bir üçgenin <b>3. kenarını</b> kapatan onu alır ve <b>bir daha oynar</b>. En çok üçgeni alan kazanır!</p>
+ <div id="res"></div>
+ <button class="b" style="background:#e67e22" data-m="ai1">🤖 Bilgisayara karşı (kolay)</button>
+ <button class="b" style="background:#c0392b" data-m="ai2">🧠 Bilgisayara karşı (zor)</button>
+ <button class="b" style="background:#27ae60" data-m="2">👥 2 kişi</button>
+ <button class="b" style="background:#2980b9" data-m="3">👥 3 kişi</button>
+ <button class="b" style="background:#8e44ad" data-m="4">👥 4 kişi</button>
+</div>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),top_=document.getElementById('top'),msg=document.getElementById('msg'),ov=document.getElementById('ov');
+const COLS=[['#2ecc71','Yeşil'],['#e67e22','Turuncu'],['#3498db','Mavi'],['#f1c40f','Sarı']],N=4;
+const DIRS=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+const pegs=[],pid={};for(let r=-N;r<=N;r++)for(let q=-N;q<=N;q++)if(Math.abs(q+r)<=N){pid[q+','+r]=pegs.length;pegs.push({q,r})}
+const on=(q,r)=>pid[q+','+r]!==undefined,P=(q,r)=>pid[q+','+r];
+const segs=[],sid={};const sk=(a,b)=>a<b?a+'-'+b:b+'-'+a;
+pegs.forEach((p,i)=>[[1,0],[0,1],[-1,1]].forEach(([dq,dr])=>{if(on(p.q+dq,p.r+dr)){const j=P(p.q+dq,p.r+dr);sid[sk(i,j)]=segs.length;segs.push({a:i,b:j,cells:[]})}}));
+const cells=[];for(let r=-N-1;r<=N;r++)for(let q=-N-1;q<=N;q++){
+ if(on(q,r)&&on(q+1,r)&&on(q,r+1))cells.push([P(q,r),P(q+1,r),P(q,r+1)]);
+ if(on(q+1,r)&&on(q,r+1)&&on(q+1,r+1))cells.push([P(q+1,r),P(q,r+1),P(q+1,r+1)])}
+cells.forEach((c,ci)=>{c.s=[sid[sk(c[0],c[1])],sid[sk(c[1],c[2])],sid[sk(c[0],c[2])]];c.s.forEach(s=>segs[s].cells.push(ci))});
+// all bands: 4 pegs straight
+const bands=[];pegs.forEach((p,i)=>DIRS.slice(0,3).forEach(([dq,dr])=>{if(on(p.q+3*dq,p.r+3*dr)){const pts=[0,1,2,3].map(k=>P(p.q+k*dq,p.r+k*dr));bands.push({pts,s:[0,1,2].map(k=>sid[sk(pts[k],pts[k+1])])})}}));
+const bandAt={};bands.forEach((b,i)=>{bandAt[b.pts[0]+'>'+b.pts[3]]=i;bandAt[b.pts[3]+'>'+b.pts[0]]=i});
+let W,H,U,OX,OY;function rs(){const d=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);
+ U=Math.min((W-30)/(2*N+.6),(H-170)/((2*N+.6)*.866));OX=W/2;OY=H/2+10}
+addEventListener('resize',()=>{rs();draw()});rs();
+const px=i=>{const p=pegs[i];return[OX+(p.q+p.r/2)*U,OY+p.r*.866*U]};
+let mode="2",np=2,turn=0,cov=[],own=[],placed=[],score=[0,0],hist=[],sel=-1,hover=-1,busy=false,over=true,lastBand=null,flash=[];
+function covered(cv_,c){return cells[c].s.every(s=>cv_[s])}
+function newGame(m){mode=m;np=m.startsWith('ai')?2:+m;turn=0;cov=new Array(segs.length).fill(0);own=new Array(cells.length).fill(-1);placed=[];score=new Array(np).fill(0);hist=[];sel=-1;over=false;lastBand=null;flash=[];
+ ov.style.display='none';ui();draw()}
+function names(i){return mode.startsWith('ai')?(i===0?'Sen':'Bilgisayar'):COLS[i][1]}
+function ui(){top_.innerHTML=score.map((s,i)=>`<div class="pl ${i===turn&&!over?'on':''}"><i style="background:${COLS[i][0]}"></i>${names(i)} ${s}</div>`).join('');
+ const free=bands.some(b=>b.s.some(s=>!cov[s]));
+ msg.textContent=over?'':(mode.startsWith('ai')&&turn===1?'Bilgisayar düşünüyor…':(mode.startsWith('ai')?'Sıra sende':'Sıra: '+COLS[turn][1])+(sel>=0?' · bitiş çivisini seç':' · bir çiviye dokun'))}
+function play(bi,who){const b=bands[bi];hist.push({cov:cov.slice(),own:own.slice(),score:score.slice(),turn,placed:placed.slice()});
+ b.s.forEach(s=>cov[s]=1);placed.push(bi);lastBand=bi;let got=0;
+ const cand=new Set();b.s.forEach(s=>segs[s].cells.forEach(c=>cand.add(c)));
+ cand.forEach(c=>{if(own[c]<0&&covered(cov,c)){own[c]=who;got++;flash.push({c,t:performance.now()})}});
+ score[who]+=got;snd(got?660+got*80:330,got?.18:.08,got?'triangle':'sine');if(got&&navigator.vibrate)navigator.vibrate(20);
+ if(!got)turn=(turn+1)%np;
+ if(own.every(o=>o>=0)){end();return}
+ ui();draw();if(mode.startsWith('ai')&&turn===1){busy=true;setTimeout(aiMove,650)}}
+function end(){over=true;ui();draw();const mx=Math.max(...score),w=score.map((s,i)=>s===mx?i:-1).filter(i=>i>=0);
+ const t=w.length>1?'🤝 Berabere!':(mode.startsWith('ai')?(w[0]===0?'🎉 Kazandın!':'🤖 Bilgisayar kazandı'):'🏆 '+COLS[w[0]][1]+' kazandı!');
+ snd(880,.4,'triangle');setTimeout(()=>{ov.querySelector('h1').textContent=t;document.getElementById('res').innerHTML=score.map((s,i)=>`<span style="color:${COLS[i][0]}">▲</span> ${names(i)}: <b>${s}</b>`).join('<br>');ov.querySelector('p').style.display='none';ov.style.display='flex'},900)}
+function legal(){const L=[];bands.forEach((b,i)=>{if(b.s.some(s=>!cov[s]))L.push(i)});return L}
+function gain(bi,c0){const c=c0.slice();bands[bi].s.forEach(s=>c[s]=1);let g=0;const cand=new Set();bands[bi].s.forEach(s=>segs[s].cells.forEach(x=>cand.add(x)));cand.forEach(x=>{if(own[x]<0&&covered(c,x))g++});return{g,c}}
+function threats(c){let t=0;cells.forEach((cl,i)=>{if(own[i]<0&&cl.s.filter(s=>c[s]).length===2)t++});return t}
+function aiMove(){busy=false;if(over)return;const L=legal();let pick;
+ if(mode==='ai1'){const caps=L.filter(i=>gain(i,cov).g>0);pick=caps.length&&Math.random()<.85?caps[Math.random()*caps.length|0]:L[Math.random()*L.length|0]}
+ else{let best=-1e9,bs=[];L.forEach(i=>{const{g,c}=gain(i,cov);const v=g>0?100*g-threats(c)*.5:-threats(c)*10-bands[i].s.filter(s=>!cov[s]).length*.01+Math.random()*.001;if(v>best){best=v;bs=[i]}else if(v===best)bs.push(i)});pick=bs[Math.random()*bs.length|0]}
+ play(pick,1)}
+function nearPeg(x,y){let bi=-1,bd=(U*.55)**2;pegs.forEach((p,i)=>{const[a,b]=px(i),d=(a-x)**2+(b-y)**2;if(d<bd){bd=d;bi=i}});return bi}
+function ends(i){const p=pegs[i],r=[];DIRS.forEach(([dq,dr])=>{if(on(p.q+3*dq,p.r+3*dr)){const j=P(p.q+3*dq,p.r+3*dr),b=bands[bandAt[i+'>'+j]];if(b.s.some(s=>!cov[s]))r.push(j)}});return r}
+function canAct(){return !over&&!busy&&!(mode.startsWith('ai')&&turn===1)}
+let downPeg=-1;
+cv.addEventListener('pointerdown',e=>{if(!canAct())return;const i=nearPeg(e.clientX,e.clientY);
+ if(sel>=0&&i>=0&&ends(sel).includes(i)){play(bandAt[sel+'>'+i],turn);sel=-1;hover=-1;ui();draw();return}
+ if(i>=0&&ends(i).length){sel=i;downPeg=i;hover=-1}else{sel=-1}ui();draw()});
+cv.addEventListener('pointermove',e=>{if(sel<0||!canAct())return;const i=nearPeg(e.clientX,e.clientY);const h=i>=0&&ends(sel).includes(i)?i:-1;if(h!==hover){hover=h;draw()}});
+addEventListener('pointerup',e=>{if(sel<0||!canAct())return;const i=nearPeg(e.clientX,e.clientY);if(i!==downPeg&&i>=0&&ends(sel).includes(i)){play(bandAt[sel+'>'+i],turn);sel=-1;hover=-1;ui();draw()}downPeg=-1});
+document.getElementById('undo')&&0;
+document.getElementById('home').onclick=()=>{ov.querySelector('h1').textContent='🔺 Üçgen Kapmaca';ov.querySelector('p').style.display='';document.getElementById('res').innerHTML='';ov.style.display='flex'};
+ov.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{snd(440,.1);newGame(b.dataset.m)});
+let ac;function snd(f,l,t='sine',v=.12){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+l);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+l)}catch(e){}}
+function tri(c,col,sc=1){const p=cells[c].map(px),cx=(p[0][0]+p[1][0]+p[2][0])/3,cy=(p[0][1]+p[1][1]+p[2][1])/3;ctx.beginPath();p.forEach(([x,y],k)=>{const X=cx+(x-cx)*sc,Y=cy+(y-cy)*sc;k?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.closePath();ctx.fillStyle=col;ctx.fill()}
+function draw(){ctx.fillStyle='#2d1b12';ctx.fillRect(0,0,W,H);
+ // board
+ const R=N*U+U*.55;ctx.beginPath();for(let k=0;k<6;k++){const a=Math.PI/3*k;ctx.lineTo(OX+R*Math.cos(a),OY+R*Math.sin(a))}ctx.closePath();
+ const g=ctx.createLinearGradient(0,OY-R,0,OY+R);g.addColorStop(0,'#d9a066');g.addColorStop(1,'#b97a43');ctx.fillStyle=g;ctx.fill();ctx.lineWidth=6;ctx.strokeStyle='#7a4a24';ctx.stroke();
+ // faint grid
+ ctx.strokeStyle='#0000001c';ctx.lineWidth=1;segs.forEach(s=>{const[a,b]=px(s.a),[c,d]=px(s.b);ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke()});
+ // tokens
+ const now=performance.now();let anim=false;
+ own.forEach((o,c)=>{if(o<0)return;const f=flash.find(x=>x.c===c);let sc=.62;if(f){const t=(now-f.t)/300;if(t<1){sc=.62*(t<.6?t/.6*1.25:1.25-(t-.6)/.4*.25);anim=true}}
+  tri(c,'#00000040',sc*1.04);tri(c,COLS[o][0],sc);tri(c,'#ffffff40',sc*.45)});
+ flash=flash.filter(x=>now-x.t<300);
+ // bands
+ placed.forEach(bi=>{const b=bands[bi],[a,c]=px(b.pts[0]),[d,e]=px(b.pts[3]);ctx.lineCap='round';ctx.strokeStyle='#00000035';ctx.lineWidth=U*.13;ctx.beginPath();ctx.moveTo(a+1.5,c+2);ctx.lineTo(d+1.5,e+2);ctx.stroke();
+  ctx.strokeStyle=bi===lastBand?'#fffbe6':'#f4f1ea';ctx.lineWidth=U*.09;ctx.beginPath();ctx.moveTo(a,c);ctx.lineTo(d,e);ctx.stroke()});
+ // selection
+ let E=[];if(sel>=0){E=ends(sel);const tc=COLS[turn][0];E.forEach(j=>{const[a,b]=px(sel),[c,d]=px(j);ctx.strokeStyle=j===hover?tc:tc+'55';ctx.lineWidth=U*(j===hover?.11:.06);ctx.setLineDash(j===hover?[]:[U*.12,U*.12]);ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke()});ctx.setLineDash([])}
+ // pegs
+ pegs.forEach((p,i)=>{const[x,y]=px(i);ctx.fillStyle='#5a3417';ctx.beginPath();ctx.arc(x,y+1.5,U*.13,0,7);ctx.fill();ctx.fillStyle=i===sel?COLS[turn][0]:E.includes(i)?'#fff':'#8b5a2b';ctx.beginPath();ctx.arc(x,y,U*(i===sel||E.includes(i)?.15:.11),0,7);ctx.fill()});
+ if(anim)requestAnimationFrame(draw)}
+draw();
+</script></body></html>
